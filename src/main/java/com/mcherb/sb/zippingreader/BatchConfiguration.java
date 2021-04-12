@@ -1,9 +1,8 @@
 package com.mcherb.sb.zippingreader;
 
-import com.mcherb.sb.zippingreader.model.Calendar;
-import com.mcherb.sb.zippingreader.model.RawExceptionDate;
-import com.mcherb.sb.zippingreader.model.ExceptionDate;
 import com.mcherb.sb.zippingreader.model.RawCalendar;
+import com.mcherb.sb.zippingreader.model.RawCompleteCalendar;
+import com.mcherb.sb.zippingreader.model.RawExceptionDate;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
@@ -18,20 +17,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Configuration
 @EnableBatchProcessing
 public class BatchConfiguration {
-
-    private static final String CALENDAR_ID = "CAL:%s";
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-
 
     @Autowired
     public JobBuilderFactory jobBuilderFactory;
@@ -40,13 +31,13 @@ public class BatchConfiguration {
     public StepBuilderFactory stepBuilderFactory;
 
     @Bean
-    public ItemReader<RawExceptionDate> calendarDateGtfsReader() {
+    public ItemReader<RawExceptionDate> calendarExceptionDatesReader() {
         BeanWrapperFieldSetMapper<RawExceptionDate> mapper = new BeanWrapperFieldSetMapper<>() {
         };
         mapper.setTargetType(RawExceptionDate.class);
 
         return new FlatFileItemReaderBuilder<RawExceptionDate>()
-                .name("calendarDateGtfs")
+                .name("calendarExceptionDatesReader")
                 .resource(new ClassPathResource("calendar_dates.txt"))
                 .linesToSkip(1)
                 .delimited()
@@ -59,18 +50,18 @@ public class BatchConfiguration {
     @Bean
     public InMemoryRemovalSearchReader<String, RawExceptionDate> inMemorySearchReader() {
         InMemoryRemovalSearchReader<String, RawExceptionDate> inMemoryRemovalSearchReader = new InMemoryRemovalSearchReader<>();
-        inMemoryRemovalSearchReader.setDelegate(calendarDateGtfsReader());
+        inMemoryRemovalSearchReader.setDelegate(calendarExceptionDatesReader());
         return inMemoryRemovalSearchReader;
     }
 
     @Bean
-    public ItemReader<RawCalendar> calendarGtfsReader() {
+    public ItemReader<RawCalendar> calendarReader() {
         BeanWrapperFieldSetMapper<RawCalendar> mapper = new BeanWrapperFieldSetMapper<>() {
         };
         mapper.setTargetType(RawCalendar.class);
 
         return new FlatFileItemReaderBuilder<RawCalendar>()
-                .name("calendarGtfs")
+                .name("calendarReader")
                 .linesToSkip(1)
                 .resource(new ClassPathResource("calendar.txt"))
                 .delimited()
@@ -81,27 +72,12 @@ public class BatchConfiguration {
 
     }
 
-    private List<ExceptionDate> buildExceptionDates(List<RawExceptionDate> calendarDates) {
-        return calendarDates.stream().map(date -> {
-            ExceptionDate exceptionDate = new ExceptionDate();
-            exceptionDate.setDate(LocalDate.parse(date.getDate(), DATE_FORMATTER));
-            exceptionDate.setCirculating(date.getExceptionType().equals("1"));
-            return exceptionDate;
-        }).collect(Collectors.toList());
-    }
-
     @Bean
-    public ZippingReader<String, RawCalendar, RawExceptionDate, Calendar> zippingReader() {
-        ZippingReader<String, RawCalendar, RawExceptionDate, Calendar> zippingReader
-                = new ZippingReader<>(
-                (c, d) -> Calendar.builder()
-                        .id(String.format(CALENDAR_ID, c.getId()))
-                        .created(OffsetDateTime.now())
-                        .exceptionDates(buildExceptionDates(d))
-                        .build()
-        );
+    public ZippingReader<String, RawCalendar, RawExceptionDate, RawCompleteCalendar> zippingReader() {
+        ZippingReader<String, RawCalendar, RawExceptionDate, RawCompleteCalendar> zippingReader
+                = new ZippingReader<>(RawCompleteCalendar::new);
 
-        zippingReader.setDelegate(calendarGtfsReader());
+        zippingReader.setDelegate(calendarReader());
         zippingReader.setSearchReader(inMemorySearchReader());
         return zippingReader;
     }
@@ -115,15 +91,23 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public ItemWriter<Calendar> calendarWriter() {
+    public ItemWriter<RawCompleteCalendar> calendarWriter() {
         return calendars -> calendars.forEach(System.out::println);
     }
 
+    @Bean
+    public Step stepCompleteCalendar() {
+        return stepBuilderFactory.get("completeCalendar")
+                .<RawCompleteCalendar, RawCompleteCalendar>chunk(5)
+                .reader(zippingReader())
+                .writer(calendarWriter())
+                .build();
+    }
 
     @Bean
     @SuppressWarnings({"unchecked"})
-    public Step stepCalendarDateGtfs() {
-        return stepBuilderFactory.get("readCalendarDateGtfs")
+    public Step stepExceptionDatesCalendar() {
+        return stepBuilderFactory.get("exceptionDatesCalendar")
                 .<RawExceptionDate, RawExceptionDate>chunk(5)
                 .reader((ItemReader) inMemorySearchReader())
                 .writer(calendarDateGtfInMemorysWriter())
@@ -131,19 +115,10 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public Step stepCalendarGtfs() {
-        return stepBuilderFactory.get("readCalendar")
-                .<Calendar, Calendar>chunk(5)
-                .reader(zippingReader())
-                .writer(calendarWriter())
-                .build();
-    }
-
-    @Bean
     public Job job() {
         return jobBuilderFactory.get("job")
-                .start(stepCalendarGtfs())
-                .next(stepCalendarDateGtfs())
+                .start(stepCompleteCalendar())
+                .next(stepExceptionDatesCalendar())
                 .build();
     }
 }
