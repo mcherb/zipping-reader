@@ -1,0 +1,26 @@
+com/mcherb/sb/zippingreader/InMemoryRemovalSearchReader.java
+ com.mcherb.sb.zippingreader.InMemoryRemovalSearchReader
+com/mcherb/sb/zippingreader/SearchReader.java
+ com.mcherb.sb.zippingreader.SearchReader
+com/mcherb/sb/zippingreader/InMemoryReader.java
+ com.mcherb.sb.zippingreader.InMemoryReader
+com/mcherb/sb/zippingreader/ZippingReaderApplication.java
+ com.mcherb.sb.zippingreader.ZippingReaderApplication
+com/mcherb/sb/zippingreader/ZippingReader.java
+ com.mcherb.sb.zippingreader.ZippingReader
+com/mcherb/sb/zippingreader/Identifiable.java
+ com.mcherb.sb.zippingreader.Identifiable
+com/mcherb/sb/zippingreader/model/ExceptionDate.java
+ com.mcherb.sb.zippingreader.model.ExceptionDate
+ com.mcherb.sb.zippingreader.model.ExceptionDate$ExceptionDateBuilder
+com/mcherb/sb/zippingreader/model/Calendar.java
+ com.mcherb.sb.zippingreader.model.Calendar
+ com.mcherb.sb.zippingreader.model.Calendar$CalendarBuilder
+com/mcherb/sb/zippingreader/model/RawCalendar.java
+ com.mcherb.sb.zippingreader.model.RawCalendar
+com/mcherb/sb/zippingreader/BatchConfiguration.java
+ com.mcherb.sb.zippingreader.BatchConfiguration
+ com.mcherb.sb.zippingreader.BatchConfiguration$1
+ com.mcherb.sb.zippingreader.BatchConfiguration$2
+com/mcherb/sb/zippingreader/model/RawExceptionDate.java
+ com.mcherb.sb.zippingreader.model.RawExceptionDate
